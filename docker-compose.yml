@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql
+    networks:
+      - micro_network
+
+  users-service:
+    build: ./users-service
+    container_name: flask_users_service
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=${USERS_DB_URL}
+    depends_on:
+      - db
+    networks:
+      - micro_network
+
+  products-service:
+    build: ./products-service
+    container_name: fastapi_products_service
+    ports:
+      - "5002:5002"
+    environment:
+      - DATABASE_URL=${PRODUCTS_DB_URL}
+    depends_on:
+      - db
+    networks:
+      - micro_network
+
+volumes:
+  postgres_data:
+
+networks:
+  micro_network:
+    driver: bridge
