@@ -65,6 +65,26 @@ services:
     networks:
       - micro_network
 
+
+  orders-consumer:
+    build: ./orders-service
+    container_name: orders_consumer_worker
+
+    command: python -m app.consumer
+
+    restart: on-failure
+
+    environment:
+      - PRODUCT_SERVICE_URL=http://fastapi_products_service:5002
+
+    depends_on:
+      - rabbitmq
+      - products-service
+      - db
+
+    networks:
+      - micro_network
+
 volumes:
   postgres_data:
 

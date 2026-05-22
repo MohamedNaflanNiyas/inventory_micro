@@ -7,6 +7,8 @@ import time
 import os
 import psycopg2
 
+
+
 # 1. Grab the URL from the environment string
 RAW_URL = os.getenv(
     "DATABASE_URL",
@@ -61,25 +63,57 @@ def callback(ch, method, properties, body):
         print(f"Error processing queue payload: {e}")
 
 # initializes RabbitMQ connection listener loops
+# def start_worker():
+#     print("Worker process sleeping for 10 seconds to allow RabbitMQ startup...")
+#     time.sleep(10)
+
+#     try: 
+#         connection = pika.BlockingConnection(
+#             pika.ConnectionParameters(host='rabbitmq_broker'))
+#         channel = connection.channel()
+
+#         # keep consistent declaration configurations
+#         channel.queue_declare(queue='order_inventory_queue', durable=True)
+
+#         # only deliver 1 unackowledged message to this consumer container at a time
+#         channel.basic_qos(prefetch_count=1)
+#         channel.basic_consume(queue='order_inventory_queue', on_message_callback=callback)
+
+#         print(" consumer setup completed... Listing to inventory messages")
+#         channel.start_consuming()
+#     except Exception as e:
+#         print(f"Connection block RabbitMQ aborted: {e}")
+
+
 def start_worker():
-    print("Worker process sleeping for 10 seconds to allow RabbitMQ startup...")
-    time.sleep(10)
+    while True:
+        try:
+            print("Connecting to RabbitMQ...")
 
-    try: 
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-        channel = connection.channel()
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host='rabbitmq_broker')
+            )
 
-        # keep consistent declaration configurations
-        channel.queue_declare(queue='order_inventory_queue', durable=True)
+            channel = connection.channel()
 
-        # only deliver 1 unackowledged message to this consumer container at a time
-        channel.basic_qos(prefetch_count=1)
-        channel.basic_consume(queue='order_inventory_queue', on_message_callback=callback)
+            channel.queue_declare(
+                queue='order_inventory_queue',
+                durable=True
+            )
 
-        print(" consumer setup completed... Listing to inventory messages")
-        channel.start_consuming()
-    except Exception as e:
-        print(f"Connection block RabbitMQ aborted: {e}")
+            channel.basic_qos(prefetch_count=1)
+
+            channel.basic_consume(
+                queue='order_inventory_queue',
+                on_message_callback=callback
+            )
+
+            print("Worker connected successfully")
+            channel.start_consuming()
+
+        except Exception as e:
+            print(f"RabbitMQ connection failed: {e}")
+            time.sleep(5)
 
 if __name__ =="__main__":
     start_worker()
