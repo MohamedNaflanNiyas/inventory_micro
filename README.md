@@ -1,18 +1,22 @@
+# Inventory Management
+
+## users-service
+## products-service
+## orders-service
 
 
 
-
-### DOCKER
+## DOCKER
 
 ->  docker-compose down
 ->  docker-compose build --no-cache 
 ->  docker-compose up --build
 
-# To Update single services 
+#### To Update single services 
 ->  docker-compose up -d --build orders-service
 
 
-END POINT LINKS:
+### END POINT LINKS:
 
 1. users-service : Flask
 ==> To create new users : http://localhost:5001/users
