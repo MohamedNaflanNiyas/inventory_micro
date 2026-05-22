@@ -4,9 +4,9 @@
 
 DOCKER
 
-docker-compose down
-docker-compose build --no-cache 
-docker-compose up --build
+->  docker-compose down
+->  docker-compose build --no-cache 
+->  docker-compose up --build
 
 
 END POINT LINKS:
@@ -23,5 +23,3 @@ END POINT LINKS:
 
 3. orders-service : FastAPI
 ==> To create new orders : http://localhost:5003/orders
-==> To get all orders : http://localhost:5003/orders
-==> To get order by ID : http://localhost:5003/orders/1
