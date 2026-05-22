@@ -2,11 +2,14 @@
 
 
 
-DOCKER
+### DOCKER
 
 ->  docker-compose down
 ->  docker-compose build --no-cache 
 ->  docker-compose up --build
+
+# To Update single services 
+->  docker-compose up -d --build orders-service
 
 
 END POINT LINKS:
