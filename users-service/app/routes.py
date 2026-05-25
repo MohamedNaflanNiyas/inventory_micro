@@ -56,7 +56,7 @@ def get_user(user_id):
     }), 200
 
 # Update user
-@users_bp.route('/users/<int:user_id>', methods=['PUT'])
+@users_bp.route('/users/update/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
     user = User.query.get(user_id)
     if not user:
@@ -66,4 +66,20 @@ def update_user(user_id):
     if 'username' in data:
         user.username = data['username']
 
-    db.session.commit
+    db.session.commit()
+    return jsonify({"id": user.id}, {"username": user.username})
+
+# delete user
+@users_bp.route('/users/delete/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify({"message": f"User {user_id} deleted successfully"}), 200
+
+
+    
