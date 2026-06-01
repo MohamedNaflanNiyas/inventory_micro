@@ -1,8 +1,16 @@
 import os
 import httpx
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends
 from pydantic import BaseModel
 from .utils import publish_order_placed
+from sqlalchemy.orm import Session
+
+from .database import engine, Base, get_db
+from .models import Order
+from .utils import publish_order_placed
+
+# creating the database tables if not exist
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Order-service",
@@ -45,10 +53,9 @@ async def health_check():
     2. Broadcasts a non blocking background inventory reduction message to RabbitMQ.
 """
 @app.post("/orders", status_code=status.HTTP_201_CREATED)
-async def create_order(order:OrderCreate):
+async def create_order(order:OrderCreate, db: Session = Depends(get_db)):
     username = "UnKnown"
     product_name= "Unknown"
-
 
     #1. Validate user existence
     async with httpx.AsyncClient() as client:
@@ -109,6 +116,18 @@ async def create_order(order:OrderCreate):
                 status_code = status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"Product verification service is temporarily unreachable: {exc}"
             )
+    
+    # Save to DB and trigger background inventory reduction event
+    db_order = Order(
+        user_id = order.user_id,
+        username = username,
+        product_id = order.product_id,
+        product_name = product_name,
+        quantity = order.quantity
+    )
+    db.add(db_order)
+    db.commit()
+    db.refresh(db_order)
                 
     # 2. Trigger Asynchoronous inventory Allocation
     try:
@@ -119,17 +138,143 @@ async def create_order(order:OrderCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Order accepted but critical background worker event broadcast faild: {mq_err}" 
         )
-
-    # 3. Respond back to client
+    
+    # save to DB 
     return{
-        "message":"Order processing initiated succesfully",
-        "order_details":{
-            "user_id": order.user_id,
-            "username": username,
-            "product_id": order.product_id,
-            "product_name": product_name,
-            "quantity": order.quantity
-        },
-        "delivery_pipeline": "asynchronous_broker_queue"
+        "message": "Order processed and saved successfully",
+        "order_details": {
+            "order_id": db_order.id,  # Clean numerical sequence!
+            "user_id": db_order.user_id,
+            "username": db_order.username,
+            "product_id": db_order.product_id,
+            "product_name": db_order.product_name,
+            "quantity": db_order.quantity
+        }
     }
 
+# Get all orders
+@app.get("/orders", status_code=status.HTTP_200_OK)
+async def get_orders(db: Session = Depends(get_db)):
+    orders = db.query(Order).all()
+    return [
+        {
+            "order_id": o.id,
+            "user_id": o.user_id,
+            "username": o.username,
+            "product_id": o.product_id,
+            "product_name": o.product_name,
+            "quantity": o.quantity
+        }
+        for o in orders
+    ]
+
+# Get order by ID
+@app.get("/orders/{order_id}", status_code=status.HTTP_200_OK)
+async def get_order(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order ID {order_id} cannot be found"
+        )
+    return {
+        "order_id": order.id,
+        "user_id": order.user_id,
+        "username": order.username,
+        "product_id": order.product_id,
+        "product_name": order.product_name,
+        "quantity": order.quantity
+    }
+
+class OrderUpdate(BaseModel):
+    new_quantity: int
+
+# update an existing order's quantity
+@app.put("/orders/{order_id}", status_code=status.HTTP_200_OK)
+async def update_order(order_id: int, order_update: OrderUpdate, db: Session = Depends(get_db)):
+    # Look up existing order in the database
+    existing_order = db.query(Order).filter(Order.id == order_id).first()
+
+    if not existing_order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order ID {order_id} cannot be found"
+        )
+    
+    if order_update.new_quantity <=0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Quantity must be greater than zero"
+        )
+    # Calculate quantity difference for RabbitMQ update
+    quantity_diff = order_update.new_quantity - existing_order.quantity
+
+    # Update the order quantity in the database
+    existing_order.quantity = order_update.new_quantity
+    db.commit()
+    db.refresh(existing_order)
+
+
+
+    # Trigger Asynchronous inventory update with the quantity difference
+    try:
+        if quantity_diff != 0:  # Only publish if there is a change in quantity
+            publish_order_placed(product_id=existing_order.product_id, quantity=quantity_diff)
+    except Exception as mq_err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Order updated but critical background worker event broadcast faild: {mq_err}" 
+        ) 
+
+    return {
+        "message": f"Order ID {order_id} has been updated successfully",
+        "order_details": {
+            "order_id": existing_order.id,
+            "user_id": existing_order.user_id,
+            "username": existing_order.username,
+            "product_id": existing_order.product_id,
+            "product_name": existing_order.product_name,
+            "quantity": existing_order.quantity
+        }
+        
+    }
+
+
+# delete an existing order
+@app.delete("/orders/{order_id}", status_code = status.HTTP_200_OK)
+async def delete_order(order_id: int, db: Session =Depends(get_db)):
+    # Look up existing order in the database
+    existing_order = db.query(Order).filter(Order.id == order_id).first()
+
+    if not existing_order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order ID - {order_id} cannot be found"
+        )
+    
+    # Calculate negative quantity for restore over RabbitMQ
+    try:
+        restore_quantity = -existing_order.quantity
+        publish_order_placed(product_id=existing_order.product_id, quantity=restore_quantity)
+    except Exception as mq_err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Order deletion failed: {mq_err}"
+        ) 
+    
+    # Delete the order from the database
+    db.delete(existing_order)   
+    db.commit()
+
+    return {
+        "message": f"Order ID {order_id} has been deleted and inventory restored successfully",
+        "order_details": {
+            "order_id": existing_order.id,
+            "user_id": existing_order.user_id,
+            "username": existing_order.username,
+            "product_id": existing_order.product_id,
+            "product_name": existing_order.product_name,
+            "quantity": existing_order.quantity
+        }
+        
+    }
