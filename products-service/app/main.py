@@ -43,6 +43,9 @@ class ProductResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class StockUpdate(BaseModel):
+    quantity: int
+
 # Database dependency Injection
 async def get_db():
     async with async_session() as session:
@@ -94,18 +97,81 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
-# 
-@app.put("/products/{product_id}/stock", status_code=200)
-async def deduct_stock(product_id: int, quantity: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(ProductDB).where(ProductDB.id == product_id))
+# Update product stock after order is placed
+@app.put("/products/deduct-stock/{product_id}", status_code=200)
+async def deduct_stock(
+    product_id: int, 
+    payload: StockUpdate,
+    db: AsyncSession = Depends(get_db) 
+):
+    result = await db.execute(
+        select(ProductDB).where(ProductDB.id == product_id)
+    )
     product = result.scalars().first()
 
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.stock < quantity:
+    if payload.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+
+    if product.stock < payload.quantity:
         raise HTTPException(status_code=400, detail="Insufficient stock")
 
-    product.stock -= quantity
+    product.stock -= payload.quantity
     await db.commit()
-    return product
+    return {
+        "message": "Stock deducted successfully",
+        "product": {
+            "id": product.id,
+            "name": product.name,
+            "stock": product.stock
+        }
+    }
+
+# Update product stock  - New Product stock 
+@app.put("/products/add-stock/{product_id}", status_code=200)
+async def add_stock(
+    product_id: int,
+    payload: StockUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(ProductDB).where(ProductDB.id == product_id)
+    )
+    product = result.scalars().first()
+
+    if not product:
+        raise HTTPException(status_code = 400, detail="Product not found")
+    
+    if payload.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    
+    product.stock += payload.quantity
+    await db.commit()
+    
+    return {
+        "message": "Stock updated successfully",
+        "product_id": product.id,
+        "product_name": product.name,
+        "old_stock": product.stock - payload.quantity,
+        "new_stock": product.stock
+    }
+
+# Delete product by ID
+@app.delete("/products/{product_id}", status_code=200)
+async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(ProductDB).where(ProductDB.id == product_id)
+    )
+    product = result.scalars().first()
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    await db.delete(product)
+    await db.commit()
+
+    return {
+        "message": f"Product {product_id} deleted successfully"
+    }

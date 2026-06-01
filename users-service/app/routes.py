@@ -62,7 +62,7 @@ def get_user(user_id):
         "username": user.username
     }), 200
 
-# Update user
+# Update user name
 @users_bp.route('/users/update/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
     user = User.query.get(user_id)
