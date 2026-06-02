@@ -13,7 +13,6 @@ The architecture consists of the following components:
 * Orders Service (FastAPI)
 
 
-
 # Users Service
 
 ## Purpose
@@ -36,7 +35,7 @@ The Users Service is responsible for managing user related operations within the
 
 ## Database
 
-The service stores data in the `users_db` PostgreSQL database.
+The service stores data in the users_db PostgreSQL database.
 
 
 ## Example Workflow
@@ -72,7 +71,7 @@ It provides APIs for product management and inventory updates.
 
 ## Database
 
-The service stores data in the `products_db` PostgreSQL database.
+The service stores data in the products_db PostgreSQL database.
 
 ## Example Workflow
 

@@ -14,7 +14,6 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
 
 
-
 # Create new user
 @users_bp.route('/users', methods=['POST'])
 def create_user():

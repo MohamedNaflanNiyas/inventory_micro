@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-dbs.sql:/docker-entrypoint-initdb.d/init-dbs.sql
@@ -57,6 +57,8 @@ services:
       - "5003:5003"
     environment:
       - USER_SERVICE_URL=http://flask_users_service:5001
+      - PRODUCTS_SERVICE_URL=http://fastapi_products_service:5002
+      - DATABASE_URL=${ORDERS_DB_URL}
     depends_on:
       - db
       - rabbitmq
@@ -76,7 +78,8 @@ services:
 
     environment:
       - PRODUCT_SERVICE_URL=http://fastapi_products_service:5002
-
+      - DATABASE_URL=${ORDERS_DB_URL}
+      
     depends_on:
       - rabbitmq
       - products-service

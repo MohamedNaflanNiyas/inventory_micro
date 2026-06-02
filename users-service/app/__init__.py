@@ -10,7 +10,7 @@ def create_app():
 
     db.init_app(app)
 
-    # REtry loop to wait for postfres to be ready
+    # Retry loop to wait for postgres to be ready
     with app.app_context():
         retries = 5
         while retries > 0:

@@ -1,14 +1,18 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # creating order database inside working container directory
-SQLALCHEMY_DATABASE_URL = "sqlite:///./orders.db"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://user:password@localhost:5432/orders_db"
+)
 
 
 # creating engine, 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args = {"check_same_thread": False}
+    DATABASE_URL
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
