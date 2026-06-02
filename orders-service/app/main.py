@@ -47,11 +47,10 @@ class OrderCreate(BaseModel):
 async def health_check():
     return {"status": "healthy", "service": "orders-service"}
 
-"""
-    Creates a new order purchase flow.
-    1. Verifies the user exists via the User Service.
-    2. Broadcasts a non blocking background inventory reduction message to RabbitMQ.
-"""
+# Creates a new order purchase flow.
+# 1. Verifies the user exists via the User Service.
+# 2. Broadcasts a non blocking background inventory reduction message to RabbitMQ.
+
 @app.post("/orders", status_code=status.HTTP_201_CREATED)
 async def create_order(order:OrderCreate, db: Session = Depends(get_db)):
     username = "UnKnown"
@@ -86,7 +85,7 @@ async def create_order(order:OrderCreate, db: Session = Depends(get_db)):
         
     # 2. Validate product exixtance
         try:
-            # Pointing to your product retrieval endpoint 
+            # Pointing to product retrieval endpoint 
             product_response = await client.get(f"{PRODUCTS_SERVICE_URL}/products/{order.product_id}", timeout=3)
 
             if product_response.status_code == 404:
@@ -278,3 +277,5 @@ async def delete_order(order_id: int, db: Session =Depends(get_db)):
         }
         
     }
+
+
