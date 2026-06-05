@@ -1,11 +1,16 @@
-import json
-import pika
+# Publishing Order Placed event to RabbitMQ when an order is created in the Orders Service. 
+# This event will be consumed by the Inventory Service to update the stock levels accordingly.
 
+import json 
+import pika 
+
+# Publish an order placed event to RabbitMQ
 def publish_order_placed(product_id: int, quantity: int):
     # connect to the RabbitMQ container via the internal Docker network name
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(host='rabbitmq_broker')
     )
+    # create a channel to communicate with RabbitMQ
     channel = connection.channel()
 
     # Declare a durable queue to restart the message survive broker

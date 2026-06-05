@@ -1,4 +1,5 @@
 services:
+# Postgress Database
   db:
     image: postgres:15-alpine
     container_name: postgres_db
@@ -13,6 +14,7 @@ services:
     networks:
       - micro_network
 
+# RabbitMQ Message Broker
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: rabbitmq_broker
@@ -50,6 +52,7 @@ services:
     networks:
       - micro_network
 
+# FastAPI Orders service with consumer worker
   orders-service:
     build: ./orders-service
     container_name: fastapi_orders_service
@@ -67,7 +70,7 @@ services:
     networks:
       - micro_network
 
-
+# Separate consumer worker for processing order messages from RabbitMQ
   orders-consumer:
     build: ./orders-service
     container_name: orders_consumer_worker

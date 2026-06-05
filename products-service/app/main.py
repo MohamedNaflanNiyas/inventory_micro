@@ -1,3 +1,8 @@
+# This is the main application file for the Products Service. It defines the FastAPI application,
+# sets up the database connection using SQLAlchemy, and implements the API endpoints for managing products. 
+# The service allows you to create new products, retrieve product information, update stock levels, and delete products. 
+# It also includes error handling for various scenarios such as insufficient stock or product not found.
+
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -29,12 +34,13 @@ class ProductDB(Base):
     price = Column(Integer, nullable=False)
     stock = Column(Integer, default=10)
 
+# Request validation schemas
 class ProductCreate(BaseModel):
     name: str
     price: float
     stock: int
 
-
+# Response model
 class ProductResponse(BaseModel):
     id: int
     name: str
@@ -43,6 +49,8 @@ class ProductResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+# Schema for stock update
 class StockUpdate(BaseModel):
     quantity: int
 
@@ -50,6 +58,11 @@ class StockUpdate(BaseModel):
 async def get_db():
     async with async_session() as session:
         yield session
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
 @app.on_event("startup")
 async def startup():
